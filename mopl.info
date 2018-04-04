@@ -1,0 +1,9 @@
+name = MOPL
+description = Mail Order Payment Link
+package = Commerce
+dependencies[] = commerce
+project = "commerce"
+core = 7.x
+files[] = mopl.module
+files[] = mopl.install
+files[] = mopl.inc

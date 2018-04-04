@@ -1,0 +1,74 @@
+<?php
+
+/**
+ * @file
+ * Implements hooks to send a payment link to an anonymous customer.
+ */
+
+// Define constants for database elements
+  define( 'TABLE_COMMERCE_ORDER', 'commerce_order' );
+
+// Include mopl.inc
+
+  module_load_include('inc', 'mopl', 'mopl');
+
+ /**
+  * Implements hook_schema_alter().
+  */
+ function mopl_schema_alter( &$schema ) {
+ $schema[TABLE_COMMERCE_ORDER]['fields']['checkout_hash'] = array(
+  'type' => 'varchar',
+  'length' => 255,
+  'not null' => TRUE,
+  'default' => '',
+  'description' => 'Checkout hash to enable anonymous checkout',
+ );
+ }
+
+ /**
+  * Implements hook_entity_insert()
+  */
+
+function mopl_entity_insert($entity, $type){
+if("commerce_order" == $type && "checkout_checkout" == $entity->status && !user_is_anonymous()){ // if-label-A
+//dpm($type);
+//dpm($entity->status);
+$order_id=$entity->order_id;
+$checkout_hash=drupal_random_key();
+dpm($checkout_hash);
+$num_updated = db_update('commerce_order')
+->fields(array(
+'checkout_hash' => $checkout_hash,
+))
+->condition('order_id', $order_id, '=')
+->execute();
+if(0==$num_updated){ //if-label-B
+ dpm("Error writing changes",NULL,'error');
+}else{
+global $user;
+$params['hash_key'] = $checkout_hash;
+// example_mail() will be called based on the first drupal_mail() parameter.
+$to_mail = db_query("SELECT mail from {commerce_order} WHERE order_id = :order_id LIMIT 1", array(":order_id" => $order_id))->fetchField();
+$site_email = variable_get('site_mail', '');
+drupal_mail('mopl', 'notice', $to_mail,language_default(), $params,$site_email);
+} // ending if-label-B
+} // ending if-label-A
+}
+
+/**
+ * Implements mopl hook_menu()
+  */
+
+  function mopl_menu() {
+  $items = array();
+  $items['start_transaction/%'] = array(
+    'page callback'  => 'mopl_redirect_to_checkout',
+    'page arguments' => array(
+    1,
+    ),
+    'access callback' => TRUE,
+    'type'           => MENU_CALLBACK,
+  );
+  return $items;
+  }
+
